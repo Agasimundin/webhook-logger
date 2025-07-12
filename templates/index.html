@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Webhook Logs</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { color: #333; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #333;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <h1>Webhook Event Logs</h1>
+  <table id="logsTable">
+    <thead>
+      <tr>
+        <th>Author</th>
+        <th>Action</th>
+        <th>From Branch</th>
+        <th>To Branch</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    fetch('/get-logs')
+      .then(res => res.json())
+      .then(data => {
+        const tbody = document.querySelector('#logsTable tbody');
+        data.forEach(log => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${log.author}</td>
+            <td>${log.action}</td>
+            <td>${log.from_branch || '-'}</td>
+            <td>${log.to_branch || '-'}</td>
+            <td>${log.timestamp}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+  </script>
+</body>
+</html>
