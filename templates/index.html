@@ -1,62 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Webhook Logs</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
-    h1 { color: #333; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    th, td {
-      padding: 12px;
-      border: 1px solid #ddd;
-      text-align: left;
-    }
-    th {
-      background: #333;
-      color: white;
-    }
-    tr:nth-child(even) {
-      background: #f2f2f2;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Webhook Event Logs</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:24px;background:#f7f7f7}
+  h1{margin-bottom:12px}
+  .filters{margin-bottom:12px}
+  button{margin-right:6px;padding:6px 12px;border:none;border-radius:4px;background:#333;color:#fff;cursor:pointer}
+  button.active{background:#d9534f}
+  table{width:100%;border-collapse:collapse;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  th,td{padding:10px 8px;border:1px solid #ddd;text-align:left;font-size:.93rem}
+  th{background:#333;color:#fff}
+  tr:nth-child(even){background:#f3f3f3}
+  .merge{color:#d9534f;font-weight:bold}
+</style>
 </head>
 <body>
-  <h1>Webhook Event Logs</h1>
-  <table id="logsTable">
-    <thead>
-      <tr>
-        <th>Author</th>
-        <th>Action</th>
-        <th>From Branch</th>
-        <th>To Branch</th>
-        <th>Timestamp</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
 
-  <script>
-    fetch('/get-logs')
-      .then(res => res.json())
-      .then(data => {
-        const tbody = document.querySelector('#logsTable tbody');
-        data.forEach(log => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${log.author}</td>
-            <td>${log.action}</td>
-            <td>${log.from_branch || '-'}</td>
-            <td>${log.to_branch || '-'}</td>
-            <td>${log.timestamp}</td>
-          `;
-          tbody.appendChild(row);
-        });
-      });
-  </script>
+<h1>Webhook Event Logs</h1>
+
+<div class="filters">
+  <button data-f="all" class="active">All</button>
+  <button data-f="push">Push</button>
+  <button data-f="pull_request">Pull Request</button>
+  <button data-f="merge">Merge</button>
+</div>
+
+<table id="logs">
+  <thead>
+    <tr>
+      <th>Author</th><th>Action</th><th>From</th><th>To</th><th>Timestamp (IST)</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+let filter="all";
+
+const buttons=document.querySelectorAll('.filters button');
+buttons.forEach(b=>b.onclick=()=>{
+  buttons.forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  filter=b.dataset.f;
+  load();
+});
+
+function toIST(iso){
+  const d=new Date(iso);
+  return d.toLocaleString('en-IN',{
+    timeZone:'Asia/Kolkata',
+    day:'2-digit',month:'long',year:'numeric',
+    hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true
+  });
+}
+
+function load(){
+  fetch('/get-logs')
+  .then(r=>r.json())
+  .then(data=>{
+    const tbody=document.querySelector('#logs tbody');
+    tbody.innerHTML='';
+    data.forEach(l=>{
+      if(filter!=="all"&&l.action!==filter) return;
+      const tr=document.createElement('tr');
+      if(l.action==='merge') tr.classList.add('merge');
+      tr.innerHTML=`
+        <td>${l.author}</td>
+        <td>${l.action}</td>
+        <td>${l.from_branch??'-'}</td>
+        <td>${l.to_branch??'-'}</td>
+        <td>${toIST(l.timestamp)}</td>`;
+      tbody.appendChild(tr);
+    });
+  }).catch(console.error);
+}
+load();                     
+setInterval(load,15000);    
+</script>
 </body>
 </html>
