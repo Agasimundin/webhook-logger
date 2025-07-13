@@ -19,30 +19,36 @@ db         = client["webhookDB"]
 collection = db["events"]
 
 # ─────────────────────────────────────────────────────────────
-# Helper: formatted IST timestamp  →  "13 July 2025 - 02:45 PM IST"
+# Helper: formatted IST timestamp  →  "13th July 2025 - 02:45 PM IST"
 # ─────────────────────────────────────────────────────────────
 def ist_timestamp() -> str:
-    ist = timezone('Asia/Kolkata')
+    ist = timezone("Asia/Kolkata")
     dt  = datetime.now(ist)
-    # day with suffix (1st, 2nd, 3rd, 4th…)
-    day = dt.day
-    suffix = "th" if 11 <= day <= 13 else {1:"st",2:"nd",3:"rd"}.get(day % 10, "th")
+    # Add ordinal suffix to day (1st, 2nd, 3rd, 4th …)
+    day   = dt.day
+    suffix = "th" if 11 <= day <= 13 else {1:"st",2:"nd",3:"rd"}.get(day % 10,"th")
     return dt.strftime(f"%-d{suffix} %B %Y - %I:%M %p IST")
 
 # ─────────────────────────────────────────────────────────────
-# Webhook route
+# Webhook endpoint
 # ─────────────────────────────────────────────────────────────
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    """
+    Handles GitHub events:
+        • push
+        • pull_request  (opened / merged)
+    Stores one document per event in MongoDB.
+    """
     try:
         data       = request.json
         event_type = request.headers.get("X-GitHub-Event")
         app.logger.info("📥 %s", event_type)
 
-        # ------------------ PUSH ------------------------------------------
+        # ------------------ PUSH -----------------------------------------
         if event_type == "push":
             doc = {
-                "request_id": data["after"],                  # commit SHA
+                "request_id": data["after"],                 # commit SHA
                 "author":      data["pusher"]["name"],
                 "action":      "push",
                 "from_branch": None,
@@ -53,9 +59,9 @@ def webhook():
 
         # ------------------ PULL REQUEST / MERGE -------------------------
         elif event_type == "pull_request":
-            pr            = data["pull_request"]
-            action        = data["action"]
-            common = {
+            pr      = data["pull_request"]
+            action  = data["action"]
+            common  = {
                 "request_id": str(pr["id"]),
                 "from_branch": pr["head"]["ref"],
                 "to_branch":   pr["base"]["ref"],
@@ -70,7 +76,7 @@ def webhook():
                     "action": "pull_request"
                 })
 
-            # PR merged
+            # PR merged  (GitHub sends action="closed" and merged=true)
             elif action == "closed" and pr.get("merged"):
                 collection.insert_one({
                     **common,
@@ -78,14 +84,14 @@ def webhook():
                     "action": "merge"
                 })
 
-        return ("", 204)     # tell GitHub all good
+        return ("", 204)
 
-    except Exception:
+    except Exception:        # log full traceback
         app.logger.exception("Webhook processing error")
         return ("Error", 500)
 
 # ─────────────────────────────────────────────────────────────
-# REST endpoint for UI
+# REST endpoint for the front‑end
 # ─────────────────────────────────────────────────────────────
 @app.route("/get-logs")
 def get_logs():
@@ -93,7 +99,7 @@ def get_logs():
     return jsonify(docs)
 
 # ─────────────────────────────────────────────────────────────
-# Front‑end
+# Simple front‑end
 # ─────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
